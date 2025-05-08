@@ -1,0 +1,389 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>FingerprintApp</class>
+ <widget class="QMainWindow" name="FingerprintApp">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>800</width>
+    <height>439</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Fingerprint Liveness Detection</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">font-size: 16px;
+          padding: 10px;
+          background: #F5F5F5;
+          color: #000000;
+          font-family: Arial, sans-serif;</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <widget class="QLabel" name="imageLabel">
+    <property name="geometry">
+     <rect>
+      <x>270</x>
+      <y>130</y>
+      <width>256</width>
+      <height>288</height>
+     </rect>
+    </property>
+    <property name="minimumSize">
+     <size>
+      <width>0</width>
+      <height>200</height>
+     </size>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">border: 3px solid #2196F3;
+          border-radius: 10px;
+          background: #FFFFFF;
+          font-size: 24px;
+          color: #000000;
+          font-weight: bold;</string>
+    </property>
+    <property name="text">
+     <string>Scanned Image Here</string>
+    </property>
+    <property name="textFormat">
+     <enum>Qt::PlainText</enum>
+    </property>
+    <property name="scaledContents">
+     <bool>false</bool>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignCenter</set>
+    </property>
+   </widget>
+   <widget class="QTextEdit" name="matchStatusDisplay">
+    <property name="geometry">
+     <rect>
+      <x>270</x>
+      <y>10</y>
+      <width>256</width>
+      <height>111</height>
+     </rect>
+    </property>
+    <property name="minimumSize">
+     <size>
+      <width>0</width>
+      <height>61</height>
+     </size>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">font-size: 18px;
+          padding: 10px;
+          border-radius: 8px;
+          background: #FFFFFF;
+          border: 2px solid #4CAF50;
+          color: #000000;
+          font-weight: bold;
+          font-family: Arial, sans-serif;</string>
+    </property>
+    <property name="readOnly">
+     <bool>true</bool>
+    </property>
+    <property name="placeholderText">
+     <string>Match Status: Matched or Not Matched</string>
+    </property>
+   </widget>
+   <widget class="QTextEdit" name="spoofStatusDisplay">
+    <property name="geometry">
+     <rect>
+      <x>540</x>
+      <y>10</y>
+      <width>241</width>
+      <height>111</height>
+     </rect>
+    </property>
+    <property name="minimumSize">
+     <size>
+      <width>0</width>
+      <height>51</height>
+     </size>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">font-size: 18px;
+          padding: 10px;
+          border-radius: 8px;
+          background: #FFFFFF;
+          border: 2px solid #F44336;
+          color: #000000;
+          font-weight: bold;
+          font-family: Arial, sans-serif;</string>
+    </property>
+    <property name="readOnly">
+     <bool>true</bool>
+    </property>
+    <property name="placeholderText">
+     <string>Spoof Status: Live or Fake</string>
+    </property>
+   </widget>
+   <widget class="QTextEdit" name="resultsDisplay">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>10</y>
+      <width>241</width>
+      <height>271</height>
+     </rect>
+    </property>
+    <property name="minimumSize">
+     <size>
+      <width>0</width>
+      <height>150</height>
+     </size>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">font-size: 18px;
+          border: 2px solid #2196F3;
+          padding: 10px;
+          border-radius: 8px;
+          background: #FFFFFF;
+          color: #000000;
+          font-weight: bold;
+          font-family: Arial, sans-serif;</string>
+    </property>
+    <property name="readOnly">
+     <bool>true</bool>
+    </property>
+    <property name="placeholderText">
+     <string>System operations and status will appear here...</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="sensorTypeButton">
+    <property name="geometry">
+     <rect>
+      <x>540</x>
+      <y>130</y>
+      <width>239</width>
+      <height>61</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">QPushButton {
+            padding: 10px;
+            font-size: 18px;
+            background: #9C27B0;
+            color: white;
+            border-radius: 8px;
+            font-weight: bold;
+            font-family: Arial, sans-serif;
+          }
+          QPushButton:hover {
+            background: #7B1FA2;
+          }
+          QPushButton:disabled {
+            background: #BA68C8;
+          }</string>
+    </property>
+    <property name="text">
+     <string>Sensor Type: Capacitive</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="spoofToggleButton">
+    <property name="geometry">
+     <rect>
+      <x>540</x>
+      <y>200</y>
+      <width>239</width>
+      <height>61</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">QPushButton {
+            padding: 10px;
+            font-size: 18px;
+            background: #FF9800;
+            color: white;
+            border-radius: 8px;
+            font-weight: bold;
+            font-family: Arial, sans-serif;
+          }
+          QPushButton:hover {
+            background: #F57C00;
+          }
+          QPushButton:disabled {
+            background: #FFB74D;
+          }</string>
+    </property>
+    <property name="text">
+     <string>Toggle Anti Spoof</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="searchButton">
+    <property name="geometry">
+     <rect>
+      <x>540</x>
+      <y>270</y>
+      <width>239</width>
+      <height>61</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">QPushButton {
+            padding: 10px;
+            font-size: 18px;
+            background: #2196F3;
+            color: white;
+            border-radius: 8px;
+            font-weight: bold;
+            font-family: Arial, sans-serif;
+          }
+          QPushButton:hover {
+            background: #1976D2;
+          }
+          QPushButton:disabled {
+            background: #64B5F6;
+          }</string>
+    </property>
+    <property name="text">
+     <string>Search</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="exitButton">
+    <property name="geometry">
+     <rect>
+      <x>540</x>
+      <y>340</y>
+      <width>239</width>
+      <height>61</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">QPushButton {
+            padding: 10px;
+            font-size: 18px;
+            background: #F44336;
+            color: white;
+            border-radius: 8px;
+            font-weight: bold;
+            font-family: Arial, sans-serif;
+          }
+          QPushButton:hover {
+            background: #D32F2F;
+          }
+          QPushButton:disabled {
+            background: #E57373;
+          }</string>
+    </property>
+    <property name="text">
+     <string>Exit</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="enrollButton">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>300</y>
+      <width>239</width>
+      <height>51</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">QPushButton {
+            padding: 10px;
+            font-size: 18px;
+            background: #4CAF50;
+            color: white;
+            border-radius: 8px;
+            font-weight: bold;
+            font-family: Arial, sans-serif;
+          }
+          QPushButton:hover {
+            background: #388E3C;
+          }
+          QPushButton:disabled {
+            background: #81C784;
+          }</string>
+    </property>
+    <property name="text">
+     <string>Enroll</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="deleteButton">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>360</y>
+      <width>239</width>
+      <height>51</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">QPushButton {
+            padding: 10px;
+            font-size: 18px;
+            background: #F44336;
+            color: white;
+            border-radius: 8px;
+            font-weight: bold;
+            font-family: Arial, sans-serif;
+          }
+          QPushButton:hover {
+            background: #D32F2F;
+          }
+          QPushButton:disabled {
+            background: #E57373;
+          }</string>
+    </property>
+    <property name="text">
+     <string>Delete</string>
+    </property>
+   </widget>
+  </widget>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>sensorTypeButton</sender>
+   <signal>clicked()</signal>
+   <receiver>FingerprintApp</receiver>
+   <slot>toggle_sensor_type()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>deleteButton</sender>
+   <signal>clicked()</signal>
+   <receiver>FingerprintApp</receiver>
+   <slot>open_delete_dialog()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>enrollButton</sender>
+   <signal>clicked()</signal>
+   <receiver>FingerprintApp</receiver>
+   <slot>open_enroll_dialog()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>20</x>
+     <y>20</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>
