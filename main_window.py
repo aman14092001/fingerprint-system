@@ -481,12 +481,24 @@ class MainWindow(QMainWindow, Ui_FingerprintApp):
         self.update_spoof_status(f"Spoof Status: {spoof_status}")
         
     def update_match_status(self, status):
-        """Update match status display"""
+        """Update match status display with color"""
         self.matchStatusDisplay.setText(status)
+        if "Matched" in status:
+            self.matchStatusDisplay.setStyleSheet("color: green; font-weight: bold;")
+        elif "No Match" in status:
+            self.matchStatusDisplay.setStyleSheet("color: red; font-weight: bold;")
+        else:
+            self.matchStatusDisplay.setStyleSheet("color: black;")
         
     def update_spoof_status(self, status):
-        """Update spoof status display"""
+        """Update spoof status display with color"""
         self.spoofStatusDisplay.setText(status)
+        if "LIVE" in status:
+            self.spoofStatusDisplay.setStyleSheet("color: green; font-weight: bold;")
+        elif "FAKE" in status:
+            self.spoofStatusDisplay.setStyleSheet("color: red; font-weight: bold;")
+        else:
+            self.spoofStatusDisplay.setStyleSheet("color: black;")
         
     def toggle_sensor_type(self):
         """Toggle sensor type between Capacitive and Optical"""
