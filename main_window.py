@@ -224,13 +224,6 @@ class MainWindow(QMainWindow, Ui_FingerprintApp):
     
     def __init__(self):
         super().__init__()
-        
-        # Create central widget and layout first
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        main_layout = QVBoxLayout(central_widget)
-        
-        # Now set up the UI
         self.setupUi(self)
         
         # Create and set up the custom ImageLabel
@@ -245,8 +238,22 @@ class MainWindow(QMainWindow, Ui_FingerprintApp):
             }
         """)
         
-        # Add the imageLabel to the layout
-        main_layout.addWidget(self.imageLabel)
+        # Find the existing imageLabel in the UI and replace it
+        old_label = self.findChild(QLabel, "imageLabel")
+        if old_label:
+            # Get the parent widget and layout
+            parent = old_label.parent()
+            if parent:
+                layout = parent.layout()
+                if layout:
+                    # Get the index of the old label
+                    index = layout.indexOf(old_label)
+                    if index >= 0:
+                        # Remove the old label
+                        layout.removeWidget(old_label)
+                        old_label.deleteLater()
+                        # Add the new label at the same position
+                        layout.insertWidget(index, self.imageLabel)
         
         # Initialize sensor
         try:
