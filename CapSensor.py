@@ -84,7 +84,8 @@ class Rps_Packet:
         self.CKS = 0x0000
 
 class CapSensor:
-    def __init__(self, port='/dev/ttyUSB0', baudrate=460800):
+    def __init__(self, port='/dev/ttyUSB0', baudrate=460800, log_callback=None):
+        self.log_callback = log_callback
         try:
             self.ser = serial.Serial(port, baudrate)
             self.cmd = [0x55, 0xAA, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01]
@@ -113,9 +114,16 @@ class CapSensor:
                 transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
             ])
             
-            print("Capacitive sensor initialized successfully.")
+            if self.log_callback:
+                self.log_callback("Capacitive sensor initialized successfully.")
+            else:
+                print("Capacitive sensor initialized successfully.")
         except Exception as e:
-            print(f"Failed to initialize sensor: {e}")
+            msg = f"Failed to initialize sensor: {e}"
+            if self.log_callback:
+                self.log_callback(msg)
+            else:
+                print(msg)
             raise e
 
     def initialize_database(self):
@@ -124,13 +132,15 @@ class CapSensor:
             db_dir = os.path.dirname(DATABASE_PATH)
             if not os.path.exists(db_dir):
                 os.makedirs(db_dir, exist_ok=True)
-                print(f"Created database directory: {db_dir}")
+                if self.log_callback:
+                    self.log_callback(f"Created database directory: {db_dir}")
 
             # Create database file if it doesn't exist
             if not os.path.exists(DATABASE_PATH):
                 conn = sqlite3.connect(DATABASE_PATH)
                 conn.close()
-                print(f"Created new database file: {DATABASE_PATH}")
+                if self.log_callback:
+                    self.log_callback(f"Created new database file: {DATABASE_PATH}")
 
             # Initialize database schema only if table doesn't exist
             conn = sqlite3.connect(DATABASE_PATH)
@@ -144,9 +154,12 @@ class CapSensor:
             ''')
             conn.commit()
             conn.close()
-            print(f"Database initialized successfully at: {DATABASE_PATH}")
+            if self.log_callback:
+                self.log_callback(f"Database initialized successfully at: {DATABASE_PATH}")
         except sqlite3.Error as e:
-            print(f"Database Initialization Failed: {e}")
+            msg = f"Database Initialization Failed: {e}"
+            if self.log_callback:
+                self.log_callback(msg)
             raise e
 
     def Tx_cmd(self):
@@ -518,7 +531,11 @@ class CapSensor:
             fingers = cursor.fetchall()
             return [finger[0] for finger in fingers]
         except Exception as e:
-            print(f"Failed to fetch enrolled fingerprints: {e}")
+            msg = f"Failed to fetch enrolled fingerprints: {e}"
+            if self.log_callback:
+                self.log_callback(msg)
+            else:
+                print(msg)
             raise e
         finally:
             db.close()
@@ -568,7 +585,10 @@ class CapSensor:
         for p in range(8):
             output.write("0x%x," % Rx_data[i])
             i = i + 1
-        print(f"Data written to {filename}")
+        if self.log_callback:
+            self.log_callback(f"Data written to {filename}")
+        else:
+            print(f"Data written to {filename}")
 
     def read_data_txt(self, filename):
         pixel_data = []
@@ -591,12 +611,18 @@ class CapSensor:
                 else:
                     pixels[x, y] = 0
         img.save(output_filename)
-        print(f"Image saved as {output_filename}")
+        if self.log_callback:
+            self.log_callback(f"Image saved as {output_filename}")
+        else:
+            print(f"Image saved as {output_filename}")
 
     def toggle_anti_spoof(self):
         """Toggle anti-spoof detection"""
         self.is_anti_spoof_enabled = not self.is_anti_spoof_enabled
-        print(f"Anti-spoof detection {'enabled' if self.is_anti_spoof_enabled else 'disabled'}")
+        if self.log_callback:
+            self.log_callback(f"Anti-spoof detection {'enabled' if self.is_anti_spoof_enabled else 'disabled'}")
+        else:
+            print(f"Anti-spoof detection {'enabled' if self.is_anti_spoof_enabled else 'disabled'}")
 
     def __del__(self):
         """Cleanup when object is destroyed."""
@@ -606,7 +632,11 @@ class CapSensor:
             if hasattr(self, 'model'):
                 del self.model
         except Exception as e:
-            print(f"Error during cleanup: {e}")
+            msg = f"Error during cleanup: {e}"
+            if self.log_callback:
+                self.log_callback(msg)
+            else:
+                print(msg)
 
     def RpsFingerDetect(self, back):
         if back:
@@ -614,12 +644,15 @@ class CapSensor:
                 return not self.RPS.DATA[0]
         else:
             if self.RPS.RET:
-                print("Instruction processing failure\r\n")
+                if self.log_callback:
+                    self.log_callback("Instruction processing failure\r\n")
             else:
                 if self.RPS.DATA[0]:
-                    print("We got a print on it\r\n")
+                    if self.log_callback:
+                        self.log_callback("We got a print on it\r\n")
                 else:
-                    print("No prints were detected\r\n")
+                    if self.log_callback:
+                        self.log_callback("No prints were detected\r\n")
                 return not self.RPS.DATA[0]
         return 2
 
@@ -643,11 +676,13 @@ class CapSensor:
             return self.RPS.RET
         else:
             if self.RPS.RET:
-                print("Fingerprint not found in the specified range\r\n")
+                if self.log_callback:
+                    self.log_callback("Fingerprint not found in the specified range\r\n")
             else:
                 data = self.RPS.DATA[0] + self.RPS.DATA[1] * 0x0100
-                print("Successful fingerprint match found!")
-                print("The matching fingerprint ID is: %d \r\n" % data)
+                if self.log_callback:
+                    self.log_callback("Successful fingerprint match found!\r\n")
+                    self.log_callback("The matching fingerprint ID is: %d \r\n" % data)
             return self.RPS.RET
 
     def RpsDelChar(self, back):
@@ -655,15 +690,20 @@ class CapSensor:
             return self.RPS.RET
         else:
             if self.RPS.RET == ERR_SUCCESS:
-                print("Fingerprint deleted successfully\r\n")
+                if self.log_callback:
+                    self.log_callback("Fingerprint deleted successfully\r\n")
             elif self.RPS.RET == ERR_FAIL:
-                print("Instruction processing failure\r\n")
+                if self.log_callback:
+                    self.log_callback("Instruction processing failure\r\n")
             elif self.RPS.RET == ERR_INVALID_PARAM:
-                print("Specified ID is invalid\r\n")
+                if self.log_callback:
+                    self.log_callback("Specified ID is invalid\r\n")
             elif self.RPS.RET == ERR_TMPL_EMPTY:
-                print("No fingerprint registered at the specified ID\r\n")
+                if self.log_callback:
+                    self.log_callback("No fingerprint registered at the specified ID\r\n")
             else:
-                print("Unknown error occurred\r\n")
+                if self.log_callback:
+                    self.log_callback("Unknown error occurred\r\n")
             return self.RPS.RET
 
     def RpsGetEnrollCount(self, back):
@@ -671,10 +711,12 @@ class CapSensor:
             return self.RPS.RET
         else:
             if self.RPS.RET:
-                print("Instruction processing failure\r\n")
+                if self.log_callback:
+                    self.log_callback("Instruction processing failure\r\n")
             else:
                 data = self.RPS.DATA[0] + self.RPS.DATA[1] * 0x0100
-                print("Total number of registered fingerprints: %d \r\n" % data)
+                if self.log_callback:
+                    self.log_callback("Total number of registered fingerprints: %d \r\n" % data)
             return self.RPS.RET
 
     def RpsGetEnrolledIdList(self, back):
@@ -682,7 +724,8 @@ class CapSensor:
             return self.RPS.RET
         else:
             if self.RPS.RET:
-                print("Instruction processing failure\r\n")
+                if self.log_callback:
+                    self.log_callback("Instruction processing failure\r\n")
             else:
                 # The actual ID list comes in a separate data packet
                 # We need to read the data packet after the response packet
@@ -694,7 +737,8 @@ class CapSensor:
                     data_packet.append(ord(self.ser.read()))
                 
                 if len(data_packet) < 10:
-                    print("Data packet too short\r\n")
+                    if self.log_callback:
+                        self.log_callback("Data packet too short\r\n")
                     return self.RPS.RET
                     
                 # Extract the ID list data (all bytes after the header)
@@ -711,10 +755,17 @@ class CapSensor:
                                 enrolled_ids.append(id)
                 
                 if enrolled_ids:
-                    print("Enrolled Fingerprint IDs:", enrolled_ids)
-                    print(f"Total enrolled fingerprints: {len(enrolled_ids)}")
+                    if self.log_callback:
+                        self.log_callback("Enrolled Fingerprint IDs:", enrolled_ids)
+                        self.log_callback(f"Total enrolled fingerprints: {len(enrolled_ids)}")
+                    else:
+                        print("Enrolled Fingerprint IDs:", enrolled_ids)
+                        print(f"Total enrolled fingerprints: {len(enrolled_ids)}")
                 else:
-                    print("No enrolled fingerprints found")
+                    if self.log_callback:
+                        self.log_callback("No enrolled fingerprints found")
+                    else:
+                        print("No enrolled fingerprints found")
             return self.RPS.RET
 
     def CmdFingerDetect(self, back):
@@ -759,15 +810,18 @@ class CapSensor:
     def CmdUpImageCode(self, back):
         Rx_data = []
         if not self.CmdFingerDetect(back):
-            print("Please move your finger away")
+            if self.log_callback:
+                self.log_callback("Please move your finger away")
         while not self.CmdFingerDetect(back):
             time.sleep(0.01)
-        print("Please press your finger")
+        if self.log_callback:
+            self.log_callback("Please press your finger")
         while self.CmdFingerDetect(back):
             time.sleep(0.01)
         if not self.CmdFingerDetect(back):
             if not self.CmdGetImage(back):
-                print("Please wait while data is being received")
+                if self.log_callback:
+                    self.log_callback("Please wait while data is being received")
                 self.CMD.CMD = CMD_UP_IMAGE_CODE
                 self.CMD.LEN = DATA_1
                 self.CMD.DATA[0] = 0x00 
@@ -807,9 +861,15 @@ class CapSensor:
             state_dict = torch.load(MODEL_PATH, map_location=self.device)
             model.load_state_dict(state_dict)
             model.eval()
+            if self.log_callback:
+                self.log_callback("Spoof detection model loaded successfully.")
             return model
         except Exception as e:
-            print(f"Failed to load spoof detection model: {e}")
+            msg = f"Failed to load spoof detection model: {e}"
+            if self.log_callback:
+                self.log_callback(msg)
+            else:
+                print(msg)
             return None
 
     def spoof_detection_algorithm(self, image_path):
@@ -840,7 +900,11 @@ class CapSensor:
 
             return result
         except Exception as e:
-            print(f"Error in spoof detection: {e}")
+            msg = f"Error in spoof detection: {e}"
+            if self.log_callback:
+                self.log_callback(msg)
+            else:
+                print(msg)
             return "Error"
 
     def read_data(self):
@@ -850,7 +914,11 @@ class CapSensor:
                 return "Finger detected"
             return None
         except Exception as e:
-            print(f"Error reading data: {e}")
+            msg = f"Error reading data: {e}"
+            if self.log_callback:
+                self.log_callback(msg)
+            else:
+                print(msg)
             return None
 
     def cleanup(self):
@@ -861,7 +929,11 @@ class CapSensor:
             if hasattr(self, 'model'):
                 del self.model
         except Exception as e:
-            print(f"Error during cleanup: {e}")
+            msg = f"Error during cleanup: {e}"
+            if self.log_callback:
+                self.log_callback(msg)
+            else:
+                print(msg)
 
 # Example usage
 if __name__ == "__main__":

@@ -226,38 +226,14 @@ class MainWindow(QMainWindow, Ui_FingerprintApp):
         super().__init__()
         self.setupUi(self)
         
-        # Create and set up the custom ImageLabel
-        self.imageLabel = ImageLabel(self)
-        self.imageLabel.setObjectName("imageLabel")
-        self.imageLabel.setMinimumSize(300, 300)
-        self.imageLabel.setStyleSheet("""
-            QLabel {
-                background-color: #f0f0f0;
-                border: 2px solid #ddd;
-                border-radius: 10px;
-            }
-        """)
+        # Add log_message method
+        def log_message(msg):
+            self.resultsDisplay.append(msg)
+        self.log_message = log_message
         
-        # Find the existing imageLabel in the UI and replace it
-        old_label = self.findChild(QLabel, "imageLabel")
-        if old_label:
-            # Get the parent widget and layout
-            parent = old_label.parent()
-            if parent:
-                layout = parent.layout()
-                if layout:
-                    # Get the index of the old label
-                    index = layout.indexOf(old_label)
-                    if index >= 0:
-                        # Remove the old label
-                        layout.removeWidget(old_label)
-                        old_label.deleteLater()
-                        # Add the new label at the same position
-                        layout.insertWidget(index, self.imageLabel)
-        
-        # Initialize sensor
+        # Initialize sensor with log_callback
         try:
-            self.sensor = CapSensor()  # Start with capacitive sensor
+            self.sensor = CapSensor(log_callback=self.log_message)  # Start with capacitive sensor
             self.current_sensor_type = "Capacitive"
             self.is_anti_spoof_enabled = False
             self.initialize_database()
