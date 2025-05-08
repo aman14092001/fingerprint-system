@@ -5,8 +5,8 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject, QCoreApplication, QTimer
 from PyQt6.QtGui import QPixmap, QImage
 from mainwindow_ui import Ui_FingerprintApp
-from OptSensor import FingerprintSensor
-from CapSensor import AnotherSensor
+from OptSensor import OptSensor
+from CapSensor import CapSensor
 import os
 import time
 import sqlite3
@@ -156,7 +156,7 @@ class MainWindow(QMainWindow, Ui_FingerprintApp):
         
         # Initialize sensor
         try:
-            self.sensor = AnotherSensor()  # Start with capacitive sensor
+            self.sensor = CapSensor()  # Start with capacitive sensor
             self.current_sensor_type = "Capacitive"
             self.is_anti_spoof_enabled = False
             self.initialize_database()
@@ -497,7 +497,7 @@ class MainWindow(QMainWindow, Ui_FingerprintApp):
             
             # Switch sensor type
             if self.current_sensor_type == "Capacitive":
-                self.sensor = FingerprintSensor()  # Switch to optical
+                self.sensor = OptSensor()  # Switch to optical
                 self.current_sensor_type = "Optical"
                 self.sensorTypeButton.setText("Sensor Type: Optical")
                 # Set button color for optical sensor (blue)
@@ -519,7 +519,7 @@ class MainWindow(QMainWindow, Ui_FingerprintApp):
                     }
                 """)
             else:
-                self.sensor = AnotherSensor()  # Switch to capacitive
+                self.sensor = CapSensor()  # Switch to capacitive
                 self.current_sensor_type = "Capacitive"
                 self.sensorTypeButton.setText("Sensor Type: Capacitive")
                 # Set button color for capacitive sensor (purple)

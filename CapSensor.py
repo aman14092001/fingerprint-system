@@ -83,7 +83,7 @@ class Rps_Packet:
         self.DATA = [0x00] * 14
         self.CKS = 0x0000
 
-class AnotherSensor:
+class CapSensor:
     def __init__(self, port='/dev/ttyUSB0', baudrate=460800):
         try:
             self.ser = serial.Serial(port, baudrate)
@@ -865,5 +865,5 @@ class AnotherSensor:
 
 # Example usage
 if __name__ == "__main__":
-    sensor = AnotherSensor()
+    sensor = CapSensor()
     sensor.enroll_finger("test_user", lambda x: print(x), lambda x: print(f"Enroll complete: {x}")) 

@@ -23,7 +23,7 @@ BAUD_RATE = 115200
 CMD_GENIMG = b'\xEF\x01\xFF\xFF\xFF\xFF\x01\x00\x03\x01\x00\x05'  # Capture Fingerprint
 CMD_UPIMAGE = b'\xEF\x01\xFF\xFF\xFF\xFF\x01\x00\x03\x0A\x00\x0E'  # Download Image
 
-class FingerprintSensor:
+class OptSensor:
     def __init__(self, port='/dev/ttyUSB1', baudrate=115200):
         try:
             self.fingerprint = PyFingerprint(port, baudrate, 0xFFFFFFFF, 0x00000000)
@@ -562,5 +562,5 @@ class FingerprintSensor:
 
 # Example usage
 if __name__ == "__main__":
-    sensor = FingerprintSensor()
+    sensor = OptSensor()
     sensor.enroll_finger("test_user", lambda x: print(x), lambda x: print(f"Enroll complete: {x}"))
