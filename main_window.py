@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                             QPushButton, QLabel, QStatusBar, QTextEdit, QMessageBox,
                             QInputDialog, QDialog, QVBoxLayout, QListWidget, QListWidgetItem,
                             QLineEdit, QGridLayout)
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject, QCoreApplication, QTimer
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject, QCoreApplication, QTimer, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup, QSequentialAnimationGroup
 from PyQt6.QtGui import QPixmap, QImage
 from mainwindow_ui import Ui_FingerprintApp
 from OptSensor import OptSensor
@@ -145,6 +145,78 @@ class SearchThread(QThread):
         except Exception as e:
             self.signals.update_ui.emit(f"Search error: {str(e)}")
 
+class ImageLabel(QLabel):
+    """Custom QLabel with animation support"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.current_pixmap = None
+        self.animation_group = None
+
+    def setPixmapWithAnimation(self, pixmap):
+        if self.current_pixmap is None:
+            # First image, just set it
+            self.current_pixmap = pixmap
+            super().setPixmap(pixmap)
+            return
+
+        # Create animation group
+        self.animation_group = QParallelAnimationGroup()
+
+        # Fade out current image
+        fade_out = QPropertyAnimation(self, b"windowOpacity")
+        fade_out.setDuration(300)
+        fade_out.setStartValue(1.0)
+        fade_out.setEndValue(0.0)
+        fade_out.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+        # Scale down current image
+        scale_down = QPropertyAnimation(self, b"geometry")
+        scale_down.setDuration(300)
+        current_rect = self.geometry()
+        scale_down.setStartValue(current_rect)
+        scale_down.setEndValue(current_rect.adjusted(10, 10, -10, -10))
+        scale_down.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+        # Add animations to group
+        self.animation_group.addAnimation(fade_out)
+        self.animation_group.addAnimation(scale_down)
+
+        # Create sequential group for fade in
+        fade_in_group = QSequentialAnimationGroup()
+
+        # Update pixmap after fade out
+        def update_pixmap():
+            self.current_pixmap = pixmap
+            super().setPixmap(pixmap)
+
+        # Fade in new image
+        fade_in = QPropertyAnimation(self, b"windowOpacity")
+        fade_in.setDuration(300)
+        fade_in.setStartValue(0.0)
+        fade_in.setEndValue(1.0)
+        fade_in.setEasingCurve(QEasingCurve.Type.InCubic)
+
+        # Scale up new image
+        scale_up = QPropertyAnimation(self, b"geometry")
+        scale_up.setDuration(300)
+        scale_up.setStartValue(current_rect.adjusted(10, 10, -10, -10))
+        scale_up.setEndValue(current_rect)
+        scale_up.setEasingCurve(QEasingCurve.Type.InCubic)
+
+        # Add animations to fade in group
+        fade_in_group.addAnimation(fade_in)
+        fade_in_group.addAnimation(scale_up)
+
+        # Connect fade out finished to update pixmap
+        fade_out.finished.connect(update_pixmap)
+
+        # Add fade in group to main group
+        self.animation_group.addAnimation(fade_in_group)
+
+        # Start animation
+        self.animation_group.start()
+
 class MainWindow(QMainWindow, Ui_FingerprintApp):
     # Update database paths
     CAPACITIVE_DATABASE_PATH = "/home/live_finger/newtry27jan/fingerprints_capacitive.db"
@@ -153,6 +225,26 @@ class MainWindow(QMainWindow, Ui_FingerprintApp):
     def __init__(self):
         super().__init__()
         self.setupUi(self)
+        
+        # Replace the standard QLabel with our custom ImageLabel
+        self.imageLabel = ImageLabel(self)
+        self.imageLabel.setObjectName("imageLabel")
+        self.imageLabel.setMinimumSize(300, 300)
+        self.imageLabel.setStyleSheet("""
+            QLabel {
+                background-color: #f0f0f0;
+                border: 2px solid #ddd;
+                border-radius: 10px;
+            }
+        """)
+        
+        # Find the layout that contains the original imageLabel and replace it
+        for i in range(self.centralWidget().layout().count()):
+            item = self.centralWidget().layout().itemAt(i)
+            if item.widget() and item.widget().objectName() == "imageLabel":
+                self.centralWidget().layout().replaceWidget(item.widget(), self.imageLabel)
+                item.widget().deleteLater()
+                break
         
         # Initialize sensor
         try:
@@ -309,7 +401,7 @@ class MainWindow(QMainWindow, Ui_FingerprintApp):
         QMessageBox.critical(self, "Enrollment Failed", error_message)
 
     def display_fingerprint_image(self, image_path):
-        """Display the fingerprint image and force update"""
+        """Display the fingerprint image with animation"""
         if not image_path or not os.path.exists(image_path):
             self.imageLabel.setText("No image available")
             return
@@ -325,10 +417,11 @@ class MainWindow(QMainWindow, Ui_FingerprintApp):
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation
             )
-            self.imageLabel.setPixmap(scaled_pixmap)
-            self.imageLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.imageLabel.repaint()
+            
+            # Use the new animated setPixmap method
+            self.imageLabel.setPixmapWithAnimation(scaled_pixmap)
             QCoreApplication.processEvents()
+            
         except Exception as e:
             self.imageLabel.setText(f"Error: {str(e)}")
         
