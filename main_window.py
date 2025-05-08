@@ -5,8 +5,8 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject, QCoreApplication, QTimer
 from PyQt6.QtGui import QPixmap, QImage
 from mainwindow_ui import Ui_FingerprintApp
-from fingerprintsensor import FingerprintSensor
-from anothersensor import AnotherSensor
+from OptSensor import FingerprintSensor
+from CapSensor import AnotherSensor
 import os
 import time
 import sqlite3

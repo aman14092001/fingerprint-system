@@ -62,8 +62,8 @@ fingerprint-system/
 ├── main.py                 # Application entry point
 ├── main_window.py         # Main window implementation
 ├── mainwindow_ui.py       # UI layout definition
-├── fingerprintsensor.py   # Optical sensor implementation
-├── anothersensor.py       # Capacitive sensor implementation
+├── OptSensor.py          # Optical sensor implementation
+├── CapSensor.py          # Capacitive sensor implementation
 ├── model/                 # Model directory
 │   └── bothSensor_combined_model3_may7.pth
 ├── requirements.txt       # Python dependencies
