@@ -2,14 +2,16 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                             QPushButton, QLabel, QStatusBar, QTextEdit, QMessageBox,
                             QInputDialog, QDialog, QVBoxLayout, QListWidget, QListWidgetItem,
                             QLineEdit, QGridLayout)
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject, QCoreApplication, QTimer, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup, QSequentialAnimationGroup
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject, QCoreApplication, QTimer
 from PyQt6.QtGui import QPixmap, QImage
 from mainwindow_ui import Ui_FingerprintApp
-from OptSensor import OptSensor
-from CapSensor import CapSensor
+from CapSensor import AnotherSensor
+from OptSensor import FingerprintSensor
 import os
 import time
 import sqlite3
+import sys
+from io import StringIO
 
 class SensorSignals(QObject):
     """Signals for sensor communication"""
@@ -19,7 +21,7 @@ class SensorSignals(QObject):
     update_spoof_status = pyqtSignal(str)
     enrollment_error = pyqtSignal(str)  # New signal for enrollment errors
     enrollment_complete = pyqtSignal(list)  # For final image paths
-    search_complete = pyqtSignal(bool, str, str)  # match status, image path, spoof status
+    search_complete = pyqtSignal(bool, str, str, str)  # match status, image path, spoof status, matched name
 
 class SensorThread(QThread):
     """Thread for handling sensor communication"""
@@ -48,35 +50,116 @@ class KeyboardDialog(QDialog):
         # Set window flags to ensure proper closing
         self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.WindowCloseButtonHint)
         
-        layout = QVBoxLayout()
+        # Set window style
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #F5F5F5;
+                border-radius: 10px;
+            }
+            QLineEdit {
+                font-size: 24px;
+                padding: 10px;
+                border: 2px solid #2196F3;
+                border-radius: 8px;
+                background: white;
+                color: #333333;
+                font-family: 'Roboto', sans-serif;
+            }
+            QPushButton {
+                font-size: 18px;
+                padding: 10px;
+                border: none;
+                border-radius: 8px;
+                background: #2196F3;
+                color: white;
+                font-weight: bold;
+                font-family: 'Roboto', sans-serif;
+            }
+            QPushButton:hover {
+                background: #1976D2;
+            }
+            QPushButton:pressed {
+                background: #0D47A1;
+            }
+            QPushButton[special="true"] {
+                background: #4CAF50;
+            }
+            QPushButton[special="true"]:hover {
+                background: #388E3C;
+            }
+            QPushButton[special="true"]:pressed {
+                background: #1B5E20;
+            }
+            QPushButton[delete="true"] {
+                background: #F44336;
+            }
+            QPushButton[delete="true"]:hover {
+                background: #D32F2F;
+            }
+            QPushButton[delete="true"]:pressed {
+                background: #B71C1C;
+            }
+        """)
         
-        # Text input
+        layout = QVBoxLayout()
+        layout.setSpacing(10)
+        layout.setContentsMargins(20, 20, 20, 20)
+        
+        # Text input with larger font
         self.text_input = QLineEdit()
         self.text_input.setReadOnly(True)
+        self.text_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.text_input.setMinimumHeight(60)
         layout.addWidget(self.text_input)
         
-        # Keyboard layout
+        # Keyboard layout with modern styling
         keyboard_layout = QGridLayout()
-        buttons = [
-            '1', '2', '3', '4', '5', '6', '7', '8', '9', '0',
-            'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p',
-            'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l',
-            'z', 'x', 'c', 'v', 'b', 'n', 'm', '⌫', 'Space', 'Enter'
+        keyboard_layout.setSpacing(5)
+        
+        # Define keyboard rows with emoji indicators
+        rows = [
+            ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
+            ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
+            ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
+            ['z', 'x', 'c', 'v', 'b', 'n', 'm', '⌫']
         ]
         
-        row = 0
-        col = 0
-        for button in buttons:
-            btn = QPushButton(button)
-            btn.clicked.connect(lambda checked, b=button: self.on_key_pressed(b))
-            keyboard_layout.addWidget(btn, row, col)
-            col += 1
-            if col > 9 or (row == 1 and col > 9) or (row == 2 and col > 8):
-                col = 0
-                row += 1
+        # Create and style keyboard buttons
+        for row_idx, row in enumerate(rows):
+            for col_idx, key in enumerate(row):
+                btn = QPushButton(key)
+                btn.setMinimumSize(50, 50)
                 
+                # Special styling for different button types
+                if key == '⌫':
+                    btn.setProperty("delete", "true")
+                
+                btn.clicked.connect(lambda checked, b=key: self.on_key_pressed(b))
+                keyboard_layout.addWidget(btn, row_idx, col_idx)
+        
+        # Add Space and Enter buttons in a separate row
+        bottom_layout = QHBoxLayout()
+        bottom_layout.setSpacing(5)
+        
+        space_btn = QPushButton("Space")
+        space_btn.setProperty("special", "true")
+        space_btn.setMinimumHeight(50)
+        space_btn.clicked.connect(lambda: self.on_key_pressed("Space"))
+        
+        enter_btn = QPushButton("Enter")
+        enter_btn.setProperty("special", "true")
+        enter_btn.setMinimumHeight(50)
+        enter_btn.clicked.connect(lambda: self.on_key_pressed("Enter"))
+        
+        bottom_layout.addWidget(space_btn, 3)  # 3 parts for space
+        bottom_layout.addWidget(enter_btn, 1)  # 1 part for enter
+        
         layout.addLayout(keyboard_layout)
+        layout.addLayout(bottom_layout)
         self.setLayout(layout)
+        
+        # Set minimum size for the dialog
+        self.setMinimumSize(600, 400)
         
     def on_key_pressed(self, key):
         if key == '⌫':
@@ -137,104 +220,24 @@ class SearchThread(QThread):
             def update_ui(message):
                 self.signals.update_ui.emit(message)
                 
-            def on_search_complete(is_match, image_path, spoof_status):
-                self.signals.search_complete.emit(is_match, image_path, spoof_status)
+            def on_search_complete(is_match, image_path, spoof_status, matched_name=None):
+                self.signals.search_complete.emit(is_match, image_path, spoof_status, matched_name)
                 
             self.sensor.search_finger(update_ui_callback=update_ui, 
                                     search_complete_callback=on_search_complete)
         except Exception as e:
             self.signals.update_ui.emit(f"Search error: {str(e)}")
 
-class ImageLabel(QLabel):
-    """Custom QLabel with animation support"""
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.current_pixmap = None
-        self.animation_group = None
-
-    def setPixmapWithAnimation(self, pixmap):
-        if self.current_pixmap is None:
-            # First image, just set it
-            self.current_pixmap = pixmap
-            super().setPixmap(pixmap)
-            return
-
-        # Create animation group
-        self.animation_group = QParallelAnimationGroup()
-
-        # Fade out current image
-        fade_out = QPropertyAnimation(self, b"windowOpacity")
-        fade_out.setDuration(300)
-        fade_out.setStartValue(1.0)
-        fade_out.setEndValue(0.0)
-        fade_out.setEasingCurve(QEasingCurve.Type.OutCubic)
-
-        # Scale down current image
-        scale_down = QPropertyAnimation(self, b"geometry")
-        scale_down.setDuration(300)
-        current_rect = self.geometry()
-        scale_down.setStartValue(current_rect)
-        scale_down.setEndValue(current_rect.adjusted(10, 10, -10, -10))
-        scale_down.setEasingCurve(QEasingCurve.Type.OutCubic)
-
-        # Add animations to group
-        self.animation_group.addAnimation(fade_out)
-        self.animation_group.addAnimation(scale_down)
-
-        # Create sequential group for fade in
-        fade_in_group = QSequentialAnimationGroup()
-
-        # Update pixmap after fade out
-        def update_pixmap():
-            self.current_pixmap = pixmap
-            super().setPixmap(pixmap)
-
-        # Fade in new image
-        fade_in = QPropertyAnimation(self, b"windowOpacity")
-        fade_in.setDuration(300)
-        fade_in.setStartValue(0.0)
-        fade_in.setEndValue(1.0)
-        fade_in.setEasingCurve(QEasingCurve.Type.InCubic)
-
-        # Scale up new image
-        scale_up = QPropertyAnimation(self, b"geometry")
-        scale_up.setDuration(300)
-        scale_up.setStartValue(current_rect.adjusted(10, 10, -10, -10))
-        scale_up.setEndValue(current_rect)
-        scale_up.setEasingCurve(QEasingCurve.Type.InCubic)
-
-        # Add animations to fade in group
-        fade_in_group.addAnimation(fade_in)
-        fade_in_group.addAnimation(scale_up)
-
-        # Connect fade out finished to update pixmap
-        fade_out.finished.connect(update_pixmap)
-
-        # Add fade in group to main group
-        self.animation_group.addAnimation(fade_in_group)
-
-        # Start animation
-        self.animation_group.start()
-
 class MainWindow(QMainWindow, Ui_FingerprintApp):
-    # Update database paths
-    CAPACITIVE_DATABASE_PATH = "/home/live_finger/newtry27jan/fingerprints_capacitive.db"
-    OPTICAL_DATABASE_PATH = "/home/live_finger/newtry27jan/fingerprints_optical.db"
-    
     def __init__(self):
         super().__init__()
         self.setupUi(self)
         
-        # Add log_message method
-        def log_message(msg):
-            self.resultsDisplay.append(msg)
-        self.log_message = log_message
-        
-        # Initialize sensor with log_callback
+        # Initialize sensor
         try:
-            self.sensor = CapSensor(log_callback=self.log_message)  # Start with capacitive sensor
+            # Start with capacitive sensor by default
             self.current_sensor_type = "Capacitive"
+            self.sensor = AnotherSensor()  # Default to capacitive sensor
             self.is_anti_spoof_enabled = False
             self.initialize_database()
             self.current_enrollment_images = []
@@ -248,33 +251,15 @@ class MainWindow(QMainWindow, Ui_FingerprintApp):
             self.resultsDisplay.setUpdatesEnabled(True)
             self.imageLabel.setUpdatesEnabled(True)
             
-            # Timer for message display
-            self.message_timer = QTimer()
-            self.message_timer.timeout.connect(self.clear_current_message)
-            self.message_timer.setSingleShot(True)
-            
-            # Message queue
+            # Message queue and display
             self.message_queue = []
-            self.current_message = ""
+            self.current_messages = []  # List to store current messages
+            self.max_messages = 10  # Maximum number of messages to display
             
-            # Set initial button color for capacitive sensor (purple)
-            self.sensorTypeButton.setStyleSheet("""
-                QPushButton {
-                    padding: 10px;
-                    font-size: 18px;
-                    background: #9C27B0;
-                    color: white;
-                    border-radius: 8px;
-                    font-weight: bold;
-                    font-family: Arial, sans-serif;
-                }
-                QPushButton:hover {
-                    background: #7B1FA2;
-                }
-                QPushButton:disabled {
-                    background: #BA68C8;
-                }
-            """)
+            # Redirect stdout to capture prints
+            self.old_stdout = sys.stdout
+            self.stdout_capture = StringIO()
+            sys.stdout = self.stdout_capture
             
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to initialize fingerprint sensor: {str(e)}")
@@ -300,54 +285,138 @@ class MainWindow(QMainWindow, Ui_FingerprintApp):
         # Create directories for storing images
         os.makedirs("fingerprint_images/enroll", exist_ok=True)
         os.makedirs("fingerprint_images/search", exist_ok=True)
-        
+
+    def get_database_path(self):
+        """Get the appropriate database path based on current sensor type"""
+        if self.current_sensor_type == "Optical":
+            return "/home/live_finger/newtry27jan/fingerprints_optical.db"
+        else:
+            return "/home/live_finger/newtry27jan/fingerprints_capacitive.db"
+
     def initialize_database(self):
         """Ensure the database exists before using it."""
         try:
-            # Use the appropriate database path based on current sensor
-            db_path = self.CAPACITIVE_DATABASE_PATH if self.current_sensor_type == "Capacitive" else self.OPTICAL_DATABASE_PATH
+            db_path = self.get_database_path()
             
+            # Create database directory if it doesn't exist
             db_dir = os.path.dirname(db_path)
             if not os.path.exists(db_dir):
                 os.makedirs(db_dir, exist_ok=True)
+                print(f"Created database directory: {db_dir}")
 
+            # Create database file if it doesn't exist
+            if not os.path.exists(db_path):
+                conn = sqlite3.connect(db_path)
+                conn.close()
+                print(f"Created new database file: {db_path}")
+
+            # Initialize database schema
             db = sqlite3.connect(db_path)
             cursor = db.cursor()
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS fingerprints (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
-                    template_position INTEGER
+                    template_position INTEGER NOT NULL UNIQUE
                 )
             ''')
             db.commit()
             db.close()
+            print(f"Database initialized successfully at: {db_path}")
         except Exception as e:
             QMessageBox.critical(self, "Database Error", f"Database Initialization Failed: {str(e)}")
             raise e
 
-    def clear_current_message(self):
-        """Clear the current message and show the next one if available"""
-        self.resultsDisplay.clear()
-        self.current_message = ""
-        
-        if self.message_queue:
-            self.current_message = self.message_queue.pop(0)
-            self.resultsDisplay.setText(self.current_message)
-            self.message_timer.start(1000)  # Show next message after 1.5 seconds
-        else:
-            self.resultsDisplay.clear()
-
     def append_to_results(self, message):
-        """Add message to queue and start display if not already running"""
+        """Add message to queue and display it"""
+        # Add message to queue
         self.message_queue.append(message)
         
-        if not self.message_timer.isActive() and not self.current_message:
-            self.clear_current_message()
+        # Update display
+        self.update_messages_display()
+
+    def update_messages_display(self):
+        """Update the messages display with all current messages"""
+        # Get terminal output
+        terminal_output = self.stdout_capture.getvalue()
+        self.stdout_capture.truncate(0)
+        self.stdout_capture.seek(0)
+        
+        # Combine terminal output with message queue
+        all_messages = []
+        if terminal_output.strip():
+            all_messages.extend(terminal_output.strip().split('\n'))
+        all_messages.extend(self.message_queue)
+        
+        # Icon mapping for commercial-style messages (priority order)
+        icon_mapping = {
+            "Starting": "", "Step": "", "Scan": "", 
+            "Template": "", "success": "", "failed": "",
+            "detected": "", "search": "", "error": "",
+            "Waiting": "", "Match": "", "No match": "",
+            "Switched": "", "Anti-spoof": "",
+            "Deleting": "", "Enabling": "", "Disabling": "",
+            "Enrollment": "", "Processing": "", "Initializing": "",
+            "Please": "", "Finger": "", "Place": "",
+            "Remove": "", "Press": "", "Try": "",
+            "Total operation time": ""
+        }
+        
+        # Filter and format messages
+        filtered_messages = []
+        for msg in all_messages:
+            # Skip unwanted messages
+            if any(unwanted in msg for unwanted in [
+                "Fingerprint matched, but name not found in database",
+                "Fingerprint matched! ID:",
+                "Performing spoof detection...",
+                "Spoof detection result:",
+                "The recommended registration number is:",
+                "Data written to",
+                "Image saved as",
+                "The fingerprint is saved successfully, and the id is:",
+                "Successful fingerprint match found!",
+                "The matching fingerprint ID is:"
+            ]):
+                continue
+                
+            # Remove all existing emojis from the message
+            for icon in icon_mapping.values():
+                msg = msg.replace(icon, '').strip()
+            
+            # Add the most appropriate single emoji
+            formatted = False
+            for key, icon in icon_mapping.items():
+                if key.lower() in msg.lower():
+                    filtered_messages.append(f"{icon} {msg}")
+                    formatted = True
+                    break
+            if not formatted:
+                filtered_messages.append(msg)
+        
+        # Keep only the most recent messages
+        if len(filtered_messages) > self.max_messages:
+            filtered_messages = filtered_messages[-self.max_messages:]
+        
+        # Update display
+        self.resultsDisplay.clear()
+        self.resultsDisplay.setText("System Status:\n" + '\n'.join(filtered_messages))
+        
+        # Scroll to bottom
+        self.resultsDisplay.verticalScrollBar().setValue(
+            self.resultsDisplay.verticalScrollBar().maximum()
+        )
+
+    def clear_current_message(self):
+        """Clear the current message and show the next one if available"""
+        if self.message_queue:
+            self.message_queue.pop(0)
+            self.update_messages_display()
 
     def open_enroll_dialog(self):
         """Open dialog for enrolling a new fingerprint"""
         if self.enrollment_in_progress:
+            self.append_to_results("⚠️ Enrollment already in progress")
             return
             
         self.enrollment_in_progress = True
@@ -359,6 +428,7 @@ class MainWindow(QMainWindow, Ui_FingerprintApp):
         if result == QDialog.DialogCode.Accepted:
             name = keyboard_dialog.name
             if not name:
+                self.append_to_results("❌ Enrollment cancelled - no name provided")
                 self.enrollment_in_progress = False
                 self.enrollButton.setEnabled(True)
                 return
@@ -366,7 +436,10 @@ class MainWindow(QMainWindow, Ui_FingerprintApp):
             # Clear any existing messages
             self.resultsDisplay.clear()
             self.message_queue.clear()
-            self.current_message = ""
+            self.current_messages.clear()
+            
+            self.append_to_results(f"📝 Starting enrollment for {name}...")
+            self.append_to_results("🔄 Please follow on-screen instructions...")
             
             # Create and start enrollment thread
             self.enrollment_thread = EnrollmentThread(self.sensor, name)
@@ -382,11 +455,12 @@ class MainWindow(QMainWindow, Ui_FingerprintApp):
 
     def handle_enrollment_error(self, error_message):
         """Handle enrollment errors"""
-        self.append_to_results(f"Enrollment Failed: {error_message}")
-        QMessageBox.critical(self, "Enrollment Failed", error_message)
+        self.append_to_results(f"❌ Enrollment Failed: {error_message}")
+        QMessageBox.critical(self, "Enrollment Error", 
+            f"Enrollment failed due to:\n{error_message}\n\nPlease check sensor connection and try again.")
 
     def display_fingerprint_image(self, image_path):
-        """Display the fingerprint image with animation"""
+        """Display the fingerprint image and force update"""
         if not image_path or not os.path.exists(image_path):
             self.imageLabel.setText("No image available")
             return
@@ -402,11 +476,10 @@ class MainWindow(QMainWindow, Ui_FingerprintApp):
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation
             )
-            
-            # Use the new animated setPixmap method
-            self.imageLabel.setPixmapWithAnimation(scaled_pixmap)
+            self.imageLabel.setPixmap(scaled_pixmap)
+            self.imageLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.imageLabel.repaint()
             QCoreApplication.processEvents()
-            
         except Exception as e:
             self.imageLabel.setText(f"Error: {str(e)}")
         
@@ -418,12 +491,14 @@ class MainWindow(QMainWindow, Ui_FingerprintApp):
         """Confirm and delete a fingerprint"""
         try:
             # Get fingerprint details from database
-            db = sqlite3.connect(self.get_current_database_path())
+            db_path = self.get_database_path()
+            db = sqlite3.connect(db_path)
             cursor = db.cursor()
             cursor.execute("SELECT name FROM fingerprints WHERE id = ?", (fingerprint_id,))
             result = cursor.fetchone()
             
             if not result:
+                self.append_to_results("❌ Delete failed: Fingerprint not found")
                 QMessageBox.warning(self, "Error", "Fingerprint not found in database.")
                 return
             
@@ -433,25 +508,30 @@ class MainWindow(QMainWindow, Ui_FingerprintApp):
             reply = QMessageBox.question(
                 self,
                 "Confirm Deletion",
-                f"Are you sure you want to delete the fingerprint for {name}?",
+                f"Delete fingerprint for:\n{name} (ID: {fingerprint_id})?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No
             )
             
             if reply == QMessageBox.StandardButton.Yes:
+                self.append_to_results(f"🗑️ Deleting {name}'s fingerprint...")
                 # Delete from sensor
                 if self.sensor.delete_finger(fingerprint_id):
                     # Delete from database
                     cursor.execute("DELETE FROM fingerprints WHERE id = ?", (fingerprint_id,))
                     db.commit()
-                    self.append_to_results(f"Fingerprint for {name} deleted successfully.")
+                    self.append_to_results(f"✅ Successfully deleted {name}'s fingerprint")
                 else:
-                    QMessageBox.warning(self, "Error", "Failed to delete fingerprint from sensor.")
+                    self.append_to_results("❌ Failed to delete from sensor")
+                    QMessageBox.warning(self, "Error", "Sensor deletion failed")
+            else:
+                self.append_to_results("⚠️ Delete operation cancelled")
             
             db.close()
             
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to delete fingerprint: {str(e)}")
+            self.append_to_results(f"❌ Delete error: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Deletion failed:\n{str(e)}")
             if 'db' in locals():
                 db.close()
 
@@ -459,7 +539,8 @@ class MainWindow(QMainWindow, Ui_FingerprintApp):
         """Handle delete button click"""
         try:
             # Get all fingerprints from database
-            db = sqlite3.connect(self.get_current_database_path())
+            db_path = self.get_database_path()
+            db = sqlite3.connect(db_path)
             cursor = db.cursor()
             cursor.execute("SELECT id, name FROM fingerprints")
             fingerprints = cursor.fetchall()
@@ -510,8 +591,13 @@ class MainWindow(QMainWindow, Ui_FingerprintApp):
     def search_fingerprint(self):
         """Search for a fingerprint match"""
         self.resultsDisplay.clear()
-        self.update_match_status("Match Status: Searching...")
-        self.update_spoof_status("Spoof Status: Analyzing...")
+        self.message_queue.clear()
+        self.current_messages.clear()
+        
+        self.append_to_results("🔍 Starting fingerprint search...")
+        self.update_match_status("Match Status: Initializing...")
+        self.update_spoof_status("Spoof Status: Disabled")
+        self.append_to_results("🔄 Waiting for finger placement...")
         
         try:
             # Create and start search thread
@@ -522,7 +608,9 @@ class MainWindow(QMainWindow, Ui_FingerprintApp):
             self.search_thread.finished.connect(self.on_search_thread_finished)
             self.search_thread.start()
         except Exception as e:
-            QMessageBox.critical(self, "Search Failed", f"An error occurred: {str(e)}")
+            self.append_to_results(f"❌ Search initialization failed: {str(e)}")
+            QMessageBox.critical(self, "Search Error", 
+                f"Failed to start search:\n{str(e)}\n\nCheck sensor connection and try again.")
 
     def on_search_thread_finished(self):
         """Handle search thread completion"""
@@ -530,133 +618,136 @@ class MainWindow(QMainWindow, Ui_FingerprintApp):
             self.search_thread.deleteLater()
             self.search_thread = None
 
-    def on_search_complete(self, is_match, image_path, spoof_status):
+    def on_search_complete(self, is_match, image_path, spoof_status, matched_name=None):
         """Handle search completion"""
         self.display_fingerprint_image(image_path)
         
         if is_match:
-            try:
-                db = sqlite3.connect(self.get_current_database_path())
-                cursor = db.cursor()
-                cursor.execute("SELECT name FROM fingerprints WHERE template_position = ?", 
-                             (self.sensor.last_match_position,))
-                result = cursor.fetchone()
-                db.close()
-                
-                if result:
-                    matched_name = result[0]
-                    self.update_match_status("Match Status: Matched")
-                    self.append_to_results(f"Fingerprint matched as {matched_name}.")
-                else:
-                    self.update_match_status("Match Status: Matched (Name not found)")
-                    self.append_to_results("Fingerprint matched, but name not found in database.")
-            except Exception as e:
-                self.append_to_results(f"Database error: {str(e)}")
+            if matched_name:
+                self.update_match_status(f"Match Status: Matched\nName: {matched_name}")
+                self.append_to_results(f"✅ Fingerprint matched with: {matched_name}")
+            else:
+                self.update_match_status("Match Status: Matched")
+                self.append_to_results("✅ Fingerprint matched")
         else:
             self.update_match_status("Match Status: No Match")
-            self.append_to_results("No match found.")
+            self.append_to_results("❌ No match found.")
             
-        self.update_spoof_status(f"Spoof Status: {spoof_status}")
-        
-    def update_match_status(self, status):
-        """Update match status display with color"""
-        self.matchStatusDisplay.setText(status)
-        if "Matched" in status:
-            self.matchStatusDisplay.setStyleSheet("color: green; font-weight: bold;")
-        elif "No Match" in status:
-            self.matchStatusDisplay.setStyleSheet("color: red; font-weight: bold;")
+        # Only update spoof status if anti-spoof detection is enabled
+        if self.sensor.is_anti_spoof_enabled:
+            self.update_spoof_status(f"Spoof Status: {spoof_status}")
         else:
-            self.matchStatusDisplay.setStyleSheet("color: black;")
+            self.update_spoof_status("Spoof Status: Disabled")
+
+    def update_match_status(self, status):
+        """Update match status display"""
+        if not status:
+            status = "Match Status: Matched or Not Matched"
+        self.matchStatusDisplay.setText(status)
         
     def update_spoof_status(self, status):
-        """Update spoof status display with color"""
+        """Update spoof status display"""
+        if not status:
+            status = "Spoof Status: Live or Fake"
         self.spoofStatusDisplay.setText(status)
-        if "LIVE" in status:
-            self.spoofStatusDisplay.setStyleSheet("color: green; font-weight: bold;")
-        elif "FAKE" in status:
-            self.spoofStatusDisplay.setStyleSheet("color: red; font-weight: bold;")
-        else:
-            self.spoofStatusDisplay.setStyleSheet("color: black;")
         
     def toggle_sensor_type(self):
         """Toggle sensor type between Capacitive and Optical"""
         try:
-            # Clean up current sensor
+            self.sensorTypeButton.setEnabled(False)
+            
+            # Clean up current sensor and thread
+            if hasattr(self, 'sensor_thread'):
+                self.sensor_thread.stop()
+                self.sensor_thread.wait()
+                self.sensor_thread = None
+                
             if hasattr(self, 'sensor'):
-                self.sensor.cleanup()
+                if hasattr(self.sensor, 'ser') and self.sensor.ser.is_open:
+                    self.sensor.ser.close()
+                if hasattr(self.sensor, 'cleanup'):
+                    self.sensor.cleanup()
+                del self.sensor
+                
+            # Switch sensor type with clear feedback
+            new_type = "Optical" if self.current_sensor_type == "Capacitive" else "Capacitive"
+            self.append_to_results(f"🔄 Switching to {new_type} sensor...")
             
             # Switch sensor type
             if self.current_sensor_type == "Capacitive":
-                self.sensor = OptSensor()  # Switch to optical
                 self.current_sensor_type = "Optical"
-                self.sensorTypeButton.setText("Sensor Type: Optical")
-                # Set button color for optical sensor (blue)
-                self.sensorTypeButton.setStyleSheet("""
-                    QPushButton {
-                        padding: 10px;
-                        font-size: 18px;
-                        background: #2196F3;
-                        color: white;
-                        border-radius: 8px;
-                        font-weight: bold;
-                        font-family: Arial, sans-serif;
-                    }
-                    QPushButton:hover {
-                        background: #1976D2;
-                    }
-                    QPushButton:disabled {
-                        background: #64B5F6;
-                    }
-                """)
+                self.sensor = FingerprintSensor(port='/dev/ttyUSB1')
+                self.append_to_results("✅ Optical sensor initialized successfully")
             else:
-                self.sensor = CapSensor()  # Switch to capacitive
                 self.current_sensor_type = "Capacitive"
-                self.sensorTypeButton.setText("Sensor Type: Capacitive")
-                # Set button color for capacitive sensor (purple)
-                self.sensorTypeButton.setStyleSheet("""
-                    QPushButton {
-                        padding: 10px;
-                        font-size: 18px;
-                        background: #9C27B0;
-                        color: white;
-                        border-radius: 8px;
-                        font-weight: bold;
-                        font-family: Arial, sans-serif;
-                    }
-                    QPushButton:hover {
-                        background: #7B1FA2;
-                    }
-                    QPushButton:disabled {
-                        background: #BA68C8;
-                    }
-                """)
+                self.sensor = AnotherSensor(port='/dev/ttyUSB0')
+                self.append_to_results("✅ Capacitive sensor initialized successfully")
+                
+            # Update UI and restart thread
+            self.update_sensor_type_button(self.current_sensor_type)
+            QCoreApplication.processEvents()
             
-            # Initialize database for new sensor
-            self.initialize_database()
+            # Reinitialize sensor thread with new sensor
+            self.sensor_thread = SensorThread(self.sensor)
+            self.sensor_thread.signals.update_ui.connect(self.append_to_results)
+            self.sensor_thread.signals.update_image.connect(self.display_fingerprint_image)
+            self.sensor_thread.signals.update_match_status.connect(self.update_match_status)
+            self.sensor_thread.signals.update_spoof_status.connect(self.update_spoof_status)
+            self.sensor_thread.signals.enrollment_complete.connect(self.on_enrollment_complete)
+            self.sensor_thread.signals.search_complete.connect(self.on_search_complete)
             
-            # Update UI
-            self.resultsDisplay.clear()
-            self.imageLabel.clear()
-            self.matchStatusDisplay.clear()
-            self.spoofStatusDisplay.clear()
+            # Re-enable the button after a short delay
+            QTimer.singleShot(1000, lambda: self.sensorTypeButton.setEnabled(True))
             
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to switch sensor: {str(e)}")
+            self.append_to_results(f"❌ Sensor switch failed: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Failed to switch sensor type: {str(e)}")
+            self.update_sensor_type_button(self.current_sensor_type)
+            self.sensorTypeButton.setEnabled(True)
 
     def toggle_anti_spoof(self):
         """Toggle anti-spoof detection"""
         if self.sensor:
-            self.sensor.toggle_anti_spoof()
-            status = "Enabled" if self.sensor.is_anti_spoof_enabled else "Disabled"
-            self.update_spoof_status(f"Spoof Status: {status}")
+            try:
+                # Toggle the status
+                self.sensor.is_anti_spoof_enabled = not self.sensor.is_anti_spoof_enabled
+                status = "Enabled" if self.sensor.is_anti_spoof_enabled else "Disabled"
+                
+                # Update UI with simple status
+                self.append_to_results(f"🛡️ Anti-spoof detection {status}")
+                self.update_spoof_status(f"Spoof Status: {status}")
+                
+                # Force immediate UI update
+                self.spoofStatusDisplay.repaint()
+                QCoreApplication.processEvents()
+                
+            except Exception as e:
+                self.append_to_results(f"❌ Spoof toggle failed: {str(e)}")
+                QMessageBox.critical(self, "Error", f"Failed to toggle spoof detection:\n{str(e)}")
         else:
-            QMessageBox.critical(self, "Error", "Fingerprint sensor not initialized.")
-            
+            self.append_to_results("⚠️ No active sensor for spoof detection")
+
     def on_enrollment_complete(self, image_paths):
         """Handle enrollment completion"""
         if len(image_paths) > 1:
             self.display_fingerprint_image(image_paths[1])  # Show the second scan
-            self.append_to_results("Enrollment completed successfully!")
+            self.append_to_results("✅ Enrollment completed successfully!")
+            
+            # Get the name of the last enrolled fingerprint
+            try:
+                db_path = self.get_database_path()
+                db = sqlite3.connect(db_path)
+                cursor = db.cursor()
+                cursor.execute('SELECT name FROM fingerprints ORDER BY id DESC LIMIT 1')
+                result = cursor.fetchone()
+                db.close()
+                
+                if result:
+                    enrolled_name = result[0]
+                    self.append_to_results(f"✅ Fingerprint enrolled for: {enrolled_name}")
+                    self.update_match_status(f"Match Status: Enrolled\nName: {enrolled_name}")
+            except Exception as e:
+                print(f"Error getting enrolled name: {e}")
 
     def on_enrollment_thread_finished(self):
         """Handle enrollment thread completion"""
@@ -666,13 +757,12 @@ class MainWindow(QMainWindow, Ui_FingerprintApp):
         self.enrollment_in_progress = False
         self.enrollButton.setEnabled(True)  # Re-enable button after enrollment
 
-    def get_current_database_path(self):
-        """Get the current database path based on sensor type"""
-        return self.CAPACITIVE_DATABASE_PATH if self.current_sensor_type == "Capacitive" else self.OPTICAL_DATABASE_PATH
-
     def closeEvent(self, event):
         """Clean up on window close"""
         try:
+            # Restore stdout
+            sys.stdout = self.old_stdout
+            
             # Stop the sensor thread
             if hasattr(self, 'sensor_thread'):
                 self.sensor_thread.stop()
@@ -690,4 +780,50 @@ class MainWindow(QMainWindow, Ui_FingerprintApp):
         except Exception as e:
             print(f"Error during cleanup: {str(e)}")
         finally:
-            event.accept() 
+            event.accept()
+
+    def delete_fingerprint(self):
+        try:
+            # Get the selected fingerprint name
+            selected_items = self.fingerprintList.selectedItems()
+            if not selected_items:
+                self.update_messages_display("❌ Please select a fingerprint to delete")
+                return
+
+            name = selected_items[0].text()
+            
+            # Get the template position from the database
+            db_path = self.get_database_path()
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT template_position FROM fingerprints WHERE name = ?", (name,))
+            result = cursor.fetchone()
+            conn.close()
+            
+            if not result:
+                self.update_messages_display(f"❌ No fingerprint found for {name}")
+                return
+                
+            template_position = result[0]
+            
+            # Delete from sensor
+            if self.current_sensor_type == "Optical":
+                self.sensor = FingerprintSensor(port='/dev/ttyUSB1')
+                self.sensor.delete_finger(template_position)
+            else:
+                self.sensor = AnotherSensor(port='/dev/ttyUSB0')
+                self.sensor.delete_finger(template_position)
+                
+            # Delete from database
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM fingerprints WHERE template_position = ?", (template_position,))
+            conn.commit()
+            conn.close()
+            
+            # Update UI
+            self.update_fingerprint_list()
+            self.update_messages_display(f"✅ Fingerprint for {name} deleted successfully")
+            
+        except Exception as e:
+            self.update_messages_display(f"❌ Error deleting fingerprint: {str(e)}") 
