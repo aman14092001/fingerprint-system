@@ -14,7 +14,7 @@ import struct
 # Constants for fingerprint sensor
 FINGERPRINT_CHARBUFFER1 = 0x01
 FINGERPRINT_CHARBUFFER2 = 0x02
-MODEL_PATH = "/home/live_finger/newtry27jan/model/bothSensor_combined_model3_may7.pth"
+MODEL_PATH = "/home/live_finger/newtry27jan/model/may2_4.pth"
 DATABASE_PATH = "/home/live_finger/newtry27jan/fingerprints_optical.db"
 save_dir = os.path.expanduser("/home/live_finger/newtry27jan/Fingerprints")
 
@@ -23,33 +23,38 @@ BAUD_RATE = 115200
 CMD_GENIMG = b'\xEF\x01\xFF\xFF\xFF\xFF\x01\x00\x03\x01\x00\x05'  # Capture Fingerprint
 CMD_UPIMAGE = b'\xEF\x01\xFF\xFF\xFF\xFF\x01\x00\x03\x0A\x00\x0E'  # Download Image
 
-class OptSensor:
-    def __init__(self, port='/dev/ttyUSB1', baudrate=115200, log_callback=None):
-        self.log_callback = log_callback
+class FingerprintSensor:
+    def __init__(self, port='/dev/ttyUSB1', baudrate=115200):
         try:
             self.fingerprint = PyFingerprint(port, baudrate, 0xFFFFFFFF, 0x00000000)
             if not self.fingerprint.verifyPassword():
                 raise ValueError("The given fingerprint sensor password is wrong!")
-            if self.log_callback:
-                self.log_callback("Fingerprint sensor initialized successfully.")
-            else:
-                print("Fingerprint sensor initialized successfully.")
+            print("Fingerprint sensor initialized successfully.")
             self.is_anti_spoof_enabled = False
             self.last_match_position = None
             
-            # Remove database reinitialization
-            self.initialize_database()
+            # Force database schema update
+            conn = sqlite3.connect(DATABASE_PATH)
+            conn.execute("DROP TABLE IF EXISTS fingerprints")
+            conn.commit()
+            conn.close()
             
+            self.initialize_database()
             # Initialize serial connection
             self.ser = serial.Serial(port, baudrate=BAUD_RATE, timeout=1)
             self.ser.reset_input_buffer()
             self.ser.reset_output_buffer()
+
+            # Initialize spoof detection model
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            self.model = self.load_model()
+            self.transform = transforms.Compose([
+                transforms.Resize((224, 224)),
+                transforms.ToTensor(),
+                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+            ])
         except Exception as e:
-            msg = f"Failed to initialize fingerprint sensor: {e}"
-            if self.log_callback:
-                self.log_callback(msg)
-            else:
-                print(msg)
+            print(f"Failed to initialize fingerprint sensor: {e}")
             raise e
 
     def __del__(self):
@@ -60,11 +65,7 @@ class OptSensor:
             if hasattr(self, 'fingerprint'):
                 del self.fingerprint
         except Exception as e:
-            msg = f"Error during cleanup: {e}"
-            if self.log_callback:
-                self.log_callback(msg)
-            else:
-                print(msg)
+            print(f"Error during cleanup: {e}")
 
     def read_data(self):
         """Read data from the sensor"""
@@ -73,9 +74,7 @@ class OptSensor:
                 return "Finger detected"
             return None
         except Exception as e:
-            msg = f"Error reading data: {e}"
-            if self.log_callback:
-                self.log_callback(msg)
+            print(f"Error reading data: {e}")
             return None
 
     def cleanup(self):
@@ -86,11 +85,7 @@ class OptSensor:
             if hasattr(self, 'fingerprint'):
                 del self.fingerprint
         except Exception as e:
-            msg = f"Error during cleanup: {e}"
-            if self.log_callback:
-                self.log_callback(msg)
-            else:
-                print(msg)
+            print(f"Error during cleanup: {e}")
 
     def initialize_database(self):
         try:
@@ -98,17 +93,15 @@ class OptSensor:
             db_dir = os.path.dirname(DATABASE_PATH)
             if not os.path.exists(db_dir):
                 os.makedirs(db_dir, exist_ok=True)
-                if self.log_callback:
-                    self.log_callback(f"Created database directory: {db_dir}")
+                print(f"Created database directory: {db_dir}")
 
             # Create database file if it doesn't exist
             if not os.path.exists(DATABASE_PATH):
                 conn = sqlite3.connect(DATABASE_PATH)
                 conn.close()
-                if self.log_callback:
-                    self.log_callback(f"Created new database file: {DATABASE_PATH}")
+                print(f"Created new database file: {DATABASE_PATH}")
 
-            # Initialize database schema only if table doesn't exist
+            # Initialize database schema
             conn = sqlite3.connect(DATABASE_PATH)
             cursor = conn.cursor()
             cursor.execute('''
@@ -120,14 +113,9 @@ class OptSensor:
             ''')
             conn.commit()
             conn.close()
-            if self.log_callback:
-                self.log_callback(f"Database initialized successfully at: {DATABASE_PATH}")
+            print(f"Database initialized successfully at: {DATABASE_PATH}")
         except sqlite3.Error as e:
-            msg = f"Database Initialization Failed: {e}"
-            if self.log_callback:
-                self.log_callback(msg)
-            else:
-                print(msg)
+            print(f"Database Initialization Failed: {e}")
             raise e
 
     def send_command(self, cmd):
@@ -137,9 +125,7 @@ class OptSensor:
             response = self.ser.read(12)  # Read standard response
             return response if response else None
         except serial.SerialException as e:
-            msg = f"Serial communication error: {e}"
-            if self.log_callback:
-                self.log_callback(msg)
+            print(f"Serial communication error: {e}")
             return None
 
     def read_image_data(self):
@@ -150,9 +136,7 @@ class OptSensor:
 
         response = self.send_command(CMD_UPIMAGE)
         if not response or response[9] != 0x00:
-            msg = "⚠️ Failed to request image upload."
-            if self.log_callback:
-                self.log_callback(msg)
+            print("⚠️ Failed to request image upload.")
             return None
 
         start_time = time.time()
@@ -178,14 +162,10 @@ class OptSensor:
                     break
 
             elapsed_time = time.time() - start_time
-            msg = f"⏳ Image read in {elapsed_time:.4f} seconds (Optimized at 115200 baud)"
-            if self.log_callback:
-                self.log_callback(msg)
+            print(f"⏳ Image read in {elapsed_time:.4f} seconds (Optimized at 115200 baud)")
             return image_data
         except serial.SerialException as e:
-            msg = f"Error reading image data: {e}"
-            if self.log_callback:
-                self.log_callback(msg)
+            print(f"Error reading image data: {e}")
             return None
 
     def save_bmp(self, image_data, image_path):
@@ -212,14 +192,10 @@ class OptSensor:
             with open(image_path, "wb") as f:
                 f.write(bmp_header + dib_header + palette + decoded_image)
 
-            msg = f"📸 Image saved as '{image_path}'."
-            if self.log_callback:
-                self.log_callback(msg)
+            print(f"📸 Image saved as '{image_path}'.")
             return True
         except Exception as e:
-            msg = f"Error saving BMP: {e}"
-            if self.log_callback:
-                self.log_callback(msg)
+            print(f"Error saving BMP: {e}")
             return False
 
     def capture_and_download(self, image_path):
@@ -227,38 +203,26 @@ class OptSensor:
         try:
             total_start = time.time()
 
-            msg = "👉 Place your finger on the sensor..."
-            if self.log_callback:
-                self.log_callback(msg)
+            print("👉 Place your finger on the sensor...")
             response = self.send_command(CMD_GENIMG)
             if not response or response[9] != 0x00:
-                msg = "❌ Fingerprint capture failed."
-                if self.log_callback:
-                    self.log_callback(msg)
+                print("❌ Fingerprint capture failed.")
                 return False
 
-            msg = "✅ Fingerprint captured!"
-            if self.log_callback:
-                self.log_callback(msg)
+            print("✅ Fingerprint captured!")
             image_data = self.read_image_data()
             if not image_data:
-                msg = "⚠️ Image download failed."
-                if self.log_callback:
-                    self.log_callback(msg)
+                print("⚠️ Image download failed.")
                 return False
 
             if not self.save_bmp(image_data, image_path):
                 return False
 
             total_elapsed = time.time() - total_start
-            msg = f"⏳ Total execution time: {total_elapsed:.4f} seconds"
-            if self.log_callback:
-                self.log_callback(msg)
+            print(f"⏳ Total execution time: {total_elapsed:.4f} seconds")
             return True
         except Exception as e:
-            msg = f"Error in capture_and_download: {e}"
-            if self.log_callback:
-                self.log_callback(msg)
+            print(f"Error in capture_and_download: {e}")
             return False
 
     def enroll_finger(self, name, update_ui_callback=None, enroll_complete_callback=None):
@@ -414,11 +378,7 @@ class OptSensor:
             fingers = cursor.fetchall()
             return [finger[0] for finger in fingers]
         except Exception as e:
-            msg = f"Failed to fetch enrolled fingerprints: {e}"
-            if self.log_callback:
-                self.log_callback(msg)
-            else:
-                print(msg)
+            print(f"Failed to fetch enrolled fingerprints: {e}")
             raise e
         finally:
             db.close()
@@ -532,106 +492,47 @@ class OptSensor:
 
         threading.Thread(target=run_search).start()
 
-    def spoof_detection_algorithm(self, image_path):
-        """Check if the fingerprint is LIVE or FAKE."""
-        spoof_start_time = time.time()
-        msg = "[INFO] Spoof detection started..."
-        if self.log_callback:
-            self.log_callback(msg)
-
-        try:
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            model = self.load_model(MODEL_PATH, device)
-            image_tensor = self.preprocess_image(image_path)
-            preds = self.predict(model, image_tensor, device)
-
-            result = "FAKE" if preds[0] == 0 else "LIVE"
-            msg = f"[INFO] Spoof detection completed in {time.time() - spoof_start_time:.2f} seconds"
-            if self.log_callback:
-                self.log_callback(msg)
-            return result
-        except Exception as e:
-            msg = f"[ERROR] Failed in spoof detection: {e}"
-            if self.log_callback:
-                self.log_callback(msg)
-            raise e
-
-    def load_model(self, weights_path, device):
+    def load_model(self):
         """Load the pre-trained spoof detection model."""
-        model_start_time = time.time()
-        msg = "[INFO] Loading model..."
-        if self.log_callback:
-            self.log_callback(msg)
-
         try:
-            # Initialize EfficientNet model
-            model = models.efficientnet_b0(pretrained=True)
-            model.classifier[1] = nn.Linear(model.classifier[1].in_features, 2)
-            model = model.to(device)
+            model = models.resnet50(pretrained=False)
+            model.fc = torch.nn.Linear(model.fc.in_features, 2)
+            model = model.to(self.device)
 
-            state_dict = torch.load(weights_path, map_location=device)
+            state_dict = torch.load(MODEL_PATH, map_location=self.device)
+            if any(k.startswith('module.') for k in state_dict.keys()):
+                new_state_dict = OrderedDict()
+                for k, v in state_dict.items():
+                    name = k[7:] if k.startswith('module.') else k
+                    new_state_dict[name] = v
+                state_dict = new_state_dict
             model.load_state_dict(state_dict)
             model.eval()
-
-            msg = f"[INFO] Model loaded in {time.time() - model_start_time:.2f} seconds"
-            if self.log_callback:
-                self.log_callback(msg)
             return model
         except Exception as e:
-            msg = f"[ERROR] Failed to load model: {e}"
-            if self.log_callback:
-                self.log_callback(msg)
-            raise e
+            print(f"Failed to load spoof detection model: {e}")
+            return None
 
-    def preprocess_image(self, image_path):
-        """Preprocess the image for spoof detection."""
-        preprocess_start_time = time.time()
-        msg = "[INFO] Preprocessing image..."
-        if self.log_callback:
-            self.log_callback(msg)
-
+    def spoof_detection_algorithm(self, image_path):
+        """Check if the fingerprint is LIVE or FAKE."""
         try:
-            preprocess = transforms.Compose([
-                transforms.Resize(256),
-                transforms.CenterCrop(224),
-                transforms.ToTensor(),
-                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-            ])
+            if not self.model:
+                return "Model not loaded"
+
+            # Load and preprocess image
             image = Image.open(image_path).convert("RGB")
-            image = preprocess(image)
+            image_tensor = self.transform(image).unsqueeze(0).to(self.device)
 
-            msg = f"[INFO] Image preprocessing completed in {time.time() - preprocess_start_time:.2f} seconds"
-            if self.log_callback:
-                self.log_callback(msg)
-            return image.unsqueeze(0)
-        except Exception as e:
-            msg = f"[ERROR] Failed to preprocess image: {e}"
-            if self.log_callback:
-                self.log_callback(msg)
-            raise e
-
-    def predict(self, model, image_tensor, device):
-        """Predict if the fingerprint is LIVE or FAKE."""
-        predict_start_time = time.time()
-        msg = "[INFO] Prediction started..."
-        if self.log_callback:
-            self.log_callback(msg)
-
-        try:
+            # Make prediction
             with torch.no_grad():
-                image_tensor = image_tensor.to(device)
-                outputs = model(image_tensor)
+                outputs = self.model(image_tensor)
                 _, preds = torch.max(outputs, 1)
+                result = "FAKE" if preds[0] == 1 else "LIVE"
 
-            msg = f"[INFO] Prediction completed in {time.time() - predict_start_time:.2f} seconds"
-            if self.log_callback:
-                self.log_callback(msg)
-            return preds.cpu().numpy()
+            return result
         except Exception as e:
-            msg = f"[ERROR] Failed to make prediction: {e}"
-            if self.log_callback:
-                self.log_callback(msg)
-            raise e
+            print(f"Error in spoof detection: {e}")
+            return "Error"
 
     def toggle_anti_spoof(self):
         """Toggle spoof detection on/off."""
@@ -639,5 +540,5 @@ class OptSensor:
 
 # Example usage
 if __name__ == "__main__":
-    sensor = OptSensor()
+    sensor = FingerprintSensor()
     sensor.enroll_finger("test_user", lambda x: print(x), lambda x: print(f"Enroll complete: {x}"))
