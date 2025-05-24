@@ -20,10 +20,6 @@ A robust fingerprint authentication system that supports both capacitive and opt
 - torchvision
 - PIL (Pillow)
 - pyserial
-- scikit-learn
-- seaborn
-- matplotlib
-
 ## Installation
 
 1. Clone the repository:
@@ -65,7 +61,7 @@ fingerprint-system/
 ├── OptSensor.py          # Optical sensor implementation
 ├── CapSensor.py          # Capacitive sensor implementation
 ├── model/                 # Model directory
-│   └── bothSensor_combined_model3_may7.pth
+│   └── model.pth
 ├── requirements.txt       # Python dependencies
 └── README.md             # This file
 ```
@@ -89,9 +85,6 @@ Each database contains:
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Acknowledgments
 
