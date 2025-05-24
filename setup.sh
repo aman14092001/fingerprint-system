@@ -16,6 +16,6 @@ mkdir -p fingerprint_images/search
 mkdir -p model
 
 echo "Setup completed! Please make sure to:"
-echo "1. Place the model file 'bothSensor_combined_model3_may7.pth' in the 'model' directory"
+echo "1. Place the model file 'model.pth' in the 'model' directory"
 echo "2. Update the database paths in main_window.py if needed"
 echo "3. Update the sensor ports in CapSensor.py and OptSensor.py if needed" 
