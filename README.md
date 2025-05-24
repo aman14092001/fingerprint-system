@@ -34,7 +34,7 @@ pip install -r requirements.txt
 ```
 
 3. Download the model file:
-- Place `bothSensor_combined_model3_may7.pth` in the `model` directory
+- Place `model.pth` in the `model` directory
 
 ## Usage
 
