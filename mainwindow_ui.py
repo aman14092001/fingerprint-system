@@ -21,7 +21,7 @@ class Ui_FingerprintApp(object):
         self.centralwidget = QtWidgets.QWidget(parent=FingerprintApp)
         self.centralwidget.setObjectName("centralwidget")
         self.imageLabel = QtWidgets.QLabel(parent=self.centralwidget)
-        self.imageLabel.setGeometry(QtCore.QRect(270, 130, 256, 288))
+        self.imageLabel.setGeometry(QtCore.QRect(270, 140, 256, 288))
         self.imageLabel.setMinimumSize(QtCore.QSize(256, 288))
         self.imageLabel.setStyleSheet("border: 3px solid #2196F3;\n"
 "          border-radius: 10px;\n"
@@ -37,44 +37,86 @@ class Ui_FingerprintApp(object):
         self.matchStatusDisplay = QtWidgets.QTextEdit(parent=self.centralwidget)
         self.matchStatusDisplay.setGeometry(QtCore.QRect(270, 10, 256, 111))
         self.matchStatusDisplay.setMinimumSize(QtCore.QSize(0, 61))
-        self.matchStatusDisplay.setStyleSheet("font-size: 18px;\n"
-"          padding: 10px;\n"
-"          border-radius: 8px;\n"
-"          background: #FFFFFF;\n"
-"          border: 2px solid #4CAF50;\n"
-"          color: #000000;\n"
-"          font-weight: bold;\n"
-"          font-family: Arial, sans-serif;")
+        self.matchStatusDisplay.setStyleSheet("""
+            QTextEdit {
+                font-size: 18px;
+                padding: 10px;
+                border-radius: 8px;
+                background: #FFFFFF;
+                border: 2px solid #4CAF50;
+                color: #000000;
+                font-weight: bold;
+                font-family: 'Roboto', sans-serif;
+            }
+        """)
         self.matchStatusDisplay.setReadOnly(True)
+        self.matchStatusDisplay.setHtml("""
+            <div style='font-size: 18px; font-weight: bold; color: #000000;'>
+                🔍 Match Status:
+            </div>
+        """)
         self.matchStatusDisplay.setObjectName("matchStatusDisplay")
         self.spoofStatusDisplay = QtWidgets.QTextEdit(parent=self.centralwidget)
         self.spoofStatusDisplay.setGeometry(QtCore.QRect(540, 10, 241, 111))
         self.spoofStatusDisplay.setMinimumSize(QtCore.QSize(0, 51))
-        self.spoofStatusDisplay.setStyleSheet("font-size: 18px;\n"
-"          padding: 10px;\n"
-"          border-radius: 8px;\n"
-"          background: #FFFFFF;\n"
-"          border: 2px solid #F44336;\n"
-"          color: #000000;\n"
-"          font-weight: bold;\n"
-"          font-family: Arial, sans-serif;")
+        self.spoofStatusDisplay.setStyleSheet("""
+            QTextEdit {
+                font-size: 18px;
+                padding: 10px;
+                border-radius: 8px;
+                background: #FFFFFF;
+                border: 2px solid #F44336;
+                color: #000000;
+                font-weight: bold;
+                font-family: 'Roboto', sans-serif;
+            }
+        """)
         self.spoofStatusDisplay.setReadOnly(True)
+        self.spoofStatusDisplay.setHtml("""
+            <div style='font-size: 18px; font-weight: bold; color: #000000;'>
+                🛡️ Spoof Status:
+            </div>
+        """)
         self.spoofStatusDisplay.setObjectName("spoofStatusDisplay")
         self.resultsDisplay = QtWidgets.QTextEdit(parent=self.centralwidget)
         self.resultsDisplay.setGeometry(QtCore.QRect(20, 10, 241, 271))
         self.resultsDisplay.setMinimumSize(QtCore.QSize(0, 150))
-        self.resultsDisplay.setStyleSheet("font-size: 18px;\n"
-"          border: 2px solid #2196F3;\n"
-"          padding: 10px;\n"
-"          border-radius: 8px;\n"
-"          background: #FFFFFF;\n"
-"          color: #000000;\n"
-"          font-weight: bold;\n"
-"          font-family: Arial, sans-serif;")
+        self.resultsDisplay.setStyleSheet("""
+            QTextEdit {
+                font-size: 16px;
+                border: 2px solid #2196F3;
+                padding: 5px;
+                border-radius: 8px;
+                background: #FFFFFF;
+                color: #333333;
+                font-family: 'Roboto Mono', 'Segoe UI Emoji', monospace;
+                text-align: left;
+            }
+            QScrollBar:vertical {
+                border: none;
+                background: #F0F0F0;
+                width: 12px;
+                margin: 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: #C0C0C0;
+                min-height: 20px;
+                border-radius: 6px;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+        """)
+        self.resultsDisplay.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft | QtCore.Qt.AlignmentFlag.AlignTop)
         self.resultsDisplay.setReadOnly(True)
+        self.resultsDisplay.setHtml("""
+            <div style='font-size: 16px; color: #333333;'>
+                📋 System Status:
+            </div>
+        """)
         self.resultsDisplay.setObjectName("resultsDisplay")
         self.sensorTypeButton = QtWidgets.QPushButton(parent=self.centralwidget)
-        self.sensorTypeButton.setGeometry(QtCore.QRect(540, 130, 239, 61))
+        self.sensorTypeButton.setGeometry(QtCore.QRect(540, 140, 239, 51))
         self.sensorTypeButton.setStyleSheet("QPushButton {\n"
 "            padding: 10px;\n"
 "            font-size: 18px;\n"
@@ -92,7 +134,7 @@ class Ui_FingerprintApp(object):
 "          }")
         self.sensorTypeButton.setObjectName("sensorTypeButton")
         self.spoofToggleButton = QtWidgets.QPushButton(parent=self.centralwidget)
-        self.spoofToggleButton.setGeometry(QtCore.QRect(540, 200, 239, 61))
+        self.spoofToggleButton.setGeometry(QtCore.QRect(540, 219, 239, 51))
         self.spoofToggleButton.setStyleSheet("QPushButton {\n"
 "            padding: 10px;\n"
 "            font-size: 18px;\n"
@@ -110,7 +152,7 @@ class Ui_FingerprintApp(object):
 "          }")
         self.spoofToggleButton.setObjectName("spoofToggleButton")
         self.searchButton = QtWidgets.QPushButton(parent=self.centralwidget)
-        self.searchButton.setGeometry(QtCore.QRect(540, 270, 239, 61))
+        self.searchButton.setGeometry(QtCore.QRect(540, 298, 239, 51))
         self.searchButton.setStyleSheet("QPushButton {\n"
 "            padding: 10px;\n"
 "            font-size: 18px;\n"
@@ -128,7 +170,7 @@ class Ui_FingerprintApp(object):
 "          }")
         self.searchButton.setObjectName("searchButton")
         self.exitButton = QtWidgets.QPushButton(parent=self.centralwidget)
-        self.exitButton.setGeometry(QtCore.QRect(540, 340, 239, 61))
+        self.exitButton.setGeometry(QtCore.QRect(540, 377, 239, 51))
         self.exitButton.setStyleSheet("QPushButton {\n"
 "            padding: 10px;\n"
 "            font-size: 18px;\n"
@@ -164,7 +206,7 @@ class Ui_FingerprintApp(object):
 "          }")
         self.enrollButton.setObjectName("enrollButton")
         self.deleteButton = QtWidgets.QPushButton(parent=self.centralwidget)
-        self.deleteButton.setGeometry(QtCore.QRect(20, 360, 239, 51))
+        self.deleteButton.setGeometry(QtCore.QRect(20, 377, 239, 51))
         self.deleteButton.setStyleSheet("QPushButton {\n"
 "            padding: 10px;\n"
 "            font-size: 18px;\n"
@@ -184,7 +226,7 @@ class Ui_FingerprintApp(object):
         FingerprintApp.setCentralWidget(self.centralwidget)
 
         self.retranslateUi(FingerprintApp)
-        self.sensorTypeButton.clicked.connect(FingerprintApp.toggle_sensor_type) # type: ignore
+        #self.sensorTypeButton.clicked.connect(FingerprintApp.toggle_sensor_type) # type: ignore
         self.deleteButton.clicked.connect(FingerprintApp.open_delete_dialog) # type: ignore
         self.enrollButton.clicked.connect(FingerprintApp.open_enroll_dialog) # type: ignore
         QtCore.QMetaObject.connectSlotsByName(FingerprintApp)
@@ -202,3 +244,9 @@ class Ui_FingerprintApp(object):
         self.exitButton.setText(_translate("FingerprintApp", "Exit"))
         self.enrollButton.setText(_translate("FingerprintApp", "Enroll"))
         self.deleteButton.setText(_translate("FingerprintApp", "Delete"))
+
+    def update_sensor_type_button(self, sensor_type):
+        """Update the sensor type button text"""
+        _translate = QtCore.QCoreApplication.translate
+        self.sensorTypeButton.setText(_translate("FingerprintApp", f"Sensor Type: {sensor_type}"))
+        self.sensorTypeButton.repaint()  # Force immediate update
